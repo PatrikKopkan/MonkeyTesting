@@ -8,10 +8,8 @@ from schema_types import enum_of_types
 data_schema = Schema({'size': int, 'content': str})
 
 test_schema = Schema({'version': str,
-                      'data': Schema({'size': int, 'content': str})}
+                      'data': Schema({'size': int, 'content': str, 'neco': bool})}
                       )
-
-#test_schema = Schema({'version': str, 'data': int, 'neco': str})
 
 def unwrap_schema(schema: Schema)-> Union[list, dict]:
     return schema.schema
@@ -45,7 +43,7 @@ def create_random_api_request(schema):
 
 
 def get_list_for_generator(schema: Union[Schema,list, dict]) -> tuple:
-    ''' return list for generator function'''
+    ''' return tuple ([data_types],[keys])'''
     list_of_attributtes = []
     list_of_keys = []
     if isinstance(schema, Schema):
@@ -63,6 +61,7 @@ def get_list_for_generator(schema: Union[Schema,list, dict]) -> tuple:
     return list_of_attributtes, list_of_keys
 
 def get_orders(parsed_schema):
+    """return list_of_orders for behaving indicies like numbers"""
     orders = []
     for t in parsed_schema:
         if type(t) == list:
@@ -96,48 +95,9 @@ def count_of_variations(orders):
             count *= order
     return count
 
-class NestedVariation:
-    pass
-
-# def variations(orders):
-#     variation = generate_default_state(orders)
-#     carry = generate_default_carry_state(orders)
-#     variation_with_generator = generate_default_state(orders)
-#     #yield variation
-#     for number_variation in range(count_of_variations(orders)):
-#         for ind in range(len(variation)):
-#             if type(variation_with_generator[ind]) == list: #inicialization of generators in first iteration
-#                 variation_with_generator[ind] = variations(orders[ind])
-#
-#             elif carry[ind] == 1:
-#                 variation[ind] = 0
-#                 carry[ind] = 0
-#                 for c_ind in range(ind + 1, len(carry)):
-#                     if carry[c_ind] == 1:
-#                         variation[c_ind] = 0
-#                         carry[c_ind] = 0
-#                     else:
-#                         if type(variation[c_ind]) == list:
-#                             for nv in variations(orders[c_ind]):
-#                                 yield nv
-#                         variation[c_ind] += 1
-#                         if variation[c_ind] == (orders[c_ind] - 1):
-#                             carry[c_ind] = 1
-#                         break
-#                 yield variation, carry
-#                 break
-#
-#             else:
-#                 variation[ind] += 1
-#                 if variation[ind] == (orders[ind] - 1):
-#                     carry[ind] = 1
-#                 yield variation, carry
-#                 break
-
-        #yield variation
 def make_generator(order):
     if type(order) == list:
-        for i in variations(order):
+        for i in kombinations(order):
             yield i
     else:
         for i in range(order):
@@ -152,16 +112,14 @@ def generate_1d_orders(orders):
             temp.append(count_of_variations(order))
 
 def nd_to_1d(orders, index=0):
+    """return 1d_repr. and map"""
     _1d_representation = []
     map = []
     for i ,order in enumerate(orders):
         if type(order) == list:
             rep, m = nd_to_1d(order, i)
-            print(rep)
-            print(_1d_representation)
             for r in rep:
                 _1d_representation.append(r)
-            print(_1d_representation)
             map.append(m)
         else:
             _1d_representation.append(order)
@@ -171,42 +129,41 @@ def nd_to_1d(orders, index=0):
 def _1d_to_nd(_1d_representation, map):
     orders = []
     for ind in map:
-        if type(map) == list:
+        if type(ind) == list:
             orders.append(_1d_to_nd(_1d_representation, ind))
         else:
             orders.append(_1d_representation[ind])
     return orders
 
-def variations(orders):
+def kombinations(orders):
     carry = generate_default_carry_state(orders)
     orders_1d = generate_1d_orders(orders)
-    variation = []
+    kombination = []
     output = generate_default_state(orders)
-    print(orders)
     for ind in range(len(orders)):
-        variation.append(make_generator(orders[ind]))
+        kombination.append(make_generator(orders[ind]))
 
 
     all_carry = False
     #while not all_carry:
     ## first iter
-    for ind in range(len(variation)):
-        output[ind] = next(variation[ind])
+    for ind in range(len(kombination)):
+        output[ind] = next(kombination[ind])
     yield output
 
     for number in range(count_of_variations(orders) - 1):
-        for ind in range(len(variation)):
+        for ind in range(len(kombination)):
             if carry[ind] == 1:
-                variation[ind] = make_generator(orders[ind])
-                output[ind] = next(variation[ind])
+                kombination[ind] = make_generator(orders[ind])
+                output[ind] = next(kombination[ind])
                 carry[ind] = 0
                 for c_ind in range(ind + 1, len(carry)):
                     if carry[c_ind] == 1:
-                        variation[c_ind] = make_generator(orders[ind])
-                        output[c_ind] = next(variation[c_ind])
+                        kombination[c_ind] = make_generator(orders[ind])
+                        output[c_ind] = next(kombination[c_ind])
                         carry[c_ind] = 0
                     else:
-                        output[c_ind] = next(variation[c_ind])
+                        output[c_ind] = next(kombination[c_ind])
 
                         if output[c_ind] == (orders[c_ind] - 1):
                             carry[c_ind] = 1
@@ -215,52 +172,22 @@ def variations(orders):
                 break
 
             else:
-                output[ind] = next(variation[ind])
+                output[ind] = next(kombination[ind])
                 if output[ind] == (orders[ind] - 1):
                     carry[ind] = 1
                 yield output
                 break
-
-        # all_carry = True
-        # for c in carry:
-        #     if c == 0:
-        #         all_carry = False
-
-
-            # if carry[ind] == 1:
-            #     variation[ind] = 0
-            #     carry[ind] = 0
-            #     for c_ind in range(ind + 1, len(carry)):
-            #         if carry[c_ind] == 1:
-            #             variation[c_ind] = 0
-            #             carry[c_ind] = 0
-            #         else:
-            #             variation[c_ind] += 1
-            #             if variation[c_ind] == (orders[c_ind] - 1):
-            #                 carry[c_ind] = 1
-            #     yield variation
-
-            # else:
-            #     variation[ind] += 1
-            #     if variation[ind] == (orders[ind] - 1):
-            #         carry[ind] = 1
-            #     yield variation
-            #     break
                  
+def nd_kombinations(schema):
+    """generator for kombinations"""
+    data_types, keys = get_list_for_generator(test_schema)
+    orders = get_orders(data_types)
+    _1d, map = nd_to_1d(orders)
+    for v in kombinations(_1d):
+        yield _1d_to_nd(v, map)
+
 
 if __name__ == "__main__":
-    #print(create_random_api_request(test_schema))
-    #print(test_schema)
-    data_types, keys = get_list_for_generator(test_schema)
-    print(data_types)
-    print(keys)
-    orders = get_orders(data_types)
-    print()
-    _1d = nd_to_1d(orders)
-    print(_1d)
-    _1d, map=_1d
-    print(_1d_to_nd(_1d, map))
-
-    # for v in variations(orders):
-    #     print(v)
+    for v in nd_kombinations(test_schema):
+        print(v)
 
