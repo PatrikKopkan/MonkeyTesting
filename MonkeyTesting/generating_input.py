@@ -5,17 +5,15 @@ import typing
 from types import GeneratorType
 from schema_types import types
 from schema_types import enum_of_types
+import requests
 data_schema = Schema({'size': int, 'content': str})
 
 test_schema = Schema({'version': str,
-                      'data': Schema({'size': int, 'content': str, 'neco': bool})}
-                      )
+                      'data': Schema({'size': int, 'content': str, 'neco': bool} 
+                      ), 'name': str})
 
 def unwrap_schema(schema: Schema)-> Union[list, dict]:
     return schema.schema
-
-def create_request(schema):
-    pass
 
 def create_random_api_request(schema):
     request = {}
@@ -45,7 +43,7 @@ def create_random_api_request(schema):
 def get_list_for_generator(schema: Union[Schema,list, dict]) -> tuple:
     ''' return tuple ([data_types],[keys])'''
     list_of_attributtes = []
-    list_of_keys = []
+    list_of_keys = {}
     if isinstance(schema, Schema):
         schema = unwrap_schema(schema)
     for key, value in schema.items():
@@ -54,10 +52,10 @@ def get_list_for_generator(schema: Union[Schema,list, dict]) -> tuple:
         if type(value) is dict:
             attr, keys = get_list_for_generator(value)
             list_of_attributtes.append(attr)
-            list_of_keys.append(keys)
+            list_of_keys[key] = keys
         elif value in enum_of_types:
             list_of_attributtes.append(value)
-            list_of_keys.append(key)
+            list_of_keys[key] = 'end'
     return list_of_attributtes, list_of_keys
 
 def get_orders(parsed_schema):
@@ -110,6 +108,7 @@ def generate_1d_orders(orders):
             temp.append(order)
         else:
             temp.append(count_of_variations(order))
+    return temp
 
 def nd_to_1d(orders, index=0):
     """return 1d_repr. and map"""
@@ -177,15 +176,31 @@ def kombinations(orders):
                     carry[ind] = 1
                 yield output
                 break
-                 
-def nd_kombinations(schema):
-    """generator for kombinations"""
+def make_payload(kombination: list, keys: dict, data_types: list) -> list:
+    payload = {}
+
+    for ind, key in enumerate(keys):
+        if type(kombination[ind]) is not list:
+            temp = enum_of_types[data_types[ind]][kombination[ind]]() 
+            payload[key] = temp
+        else:
+            payload[key] = make_payload(kombination[ind], keys[key], data_types[ind])
+    
+    return payload
+        
+def nd_kombinations(schema : Schema) -> list:
+    """generator for kombinations of data"""
     data_types, keys = get_list_for_generator(test_schema)
     orders = get_orders(data_types)
+    print(keys)
+    print(data_types)
     _1d, map = nd_to_1d(orders)
-    for v in kombinations(_1d):
-        yield _1d_to_nd(v, map)
+    for k in kombinations(_1d):
+        yield make_payload(_1d_to_nd(k, map), keys, data_types)
 
+def test_api(schema : Schema, url: str) -> None:
+    for data in nd_kombinations(schema):
+        response = requests.post(url, json=data)
 
 if __name__ == "__main__":
     for v in nd_kombinations(test_schema):

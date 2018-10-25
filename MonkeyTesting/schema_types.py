@@ -40,7 +40,12 @@ def unicode(size=30):
 def return_empty_str():
     return ''
 
+def return_False():
+    return False
+
+def return_True():
+    return True
 strf = [return_zero, ascii_str, unicode]
 
 types = {'int': intf, 'str': strf, 'float': floatf, 'bool': [True, False]}
-enum_of_types = {int: intf, str: strf, float: floatf, bool: [True, False]}
+enum_of_types = {int: intf, str: strf, float: floatf, bool: [return_True, return_False]}
