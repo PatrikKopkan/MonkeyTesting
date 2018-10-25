@@ -1,4 +1,4 @@
-from .schema_types import types
+
 from voluptuous import Schema
 data_schema = Schema({'size': int, 'content': str})
 

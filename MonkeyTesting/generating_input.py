@@ -3,9 +3,12 @@ import random
 from typing import Union
 import typing
 from types import GeneratorType
-from schema_types import types
 from schema_types import enum_of_types
 import requests
+import logging
+import json
+import collections
+
 data_schema = Schema({'size': int, 'content': str})
 
 test_schema = Schema({'version': str,
@@ -15,35 +18,10 @@ test_schema = Schema({'version': str,
 def unwrap_schema(schema: Schema)-> Union[list, dict]:
     return schema.schema
 
-def create_random_api_request(schema):
-    request = {}
-    for key, value in unwrap_schema(schema).items():
-        # print(unwrap_schema(schema).items())
-        # print(f'{key} : {value}')
-        # print(type(value))
-        #print(type(value))
-        if value == str:
-            request[key] = ''
-            for i in range(0,random.randint(0,30)):
-                request[key] += chr(random.randint(32, 500))
-        elif value == int:
-            request[key] = random.randint(0,4000000) - 2000000
-        elif value == float:
-            request[key] = (random.randint(0,10000000) - 50000000)/100000
-        # elif value == dict:
-        #     #print('dict ok')
-        #     request[key] = create_api_request(value)
-        elif isinstance(value, Schema):
-            #print('dict ok')
-            request[key] = create_random_api_request(value)
-    #print('request: ' + str(request))
-    return request
-
-
-def get_list_for_generator(schema: Union[Schema,list, dict]) -> tuple:
+def get_list_for_generator(schema: Schema) -> tuple:
     ''' return tuple ([data_types],[keys])'''
     list_of_attributtes = []
-    list_of_keys = {}
+    list_of_keys = collections.OrderedDict()
     if isinstance(schema, Schema):
         schema = unwrap_schema(schema)
     for key, value in schema.items():
@@ -80,7 +58,7 @@ def generate_default_state(orders):
 
 def generate_default_carry_state(orders):
     state = []
-    for order in orders:
+    for _ in orders:
         state.append(0)
     return state
 
@@ -110,8 +88,8 @@ def generate_1d_orders(orders):
             temp.append(count_of_variations(order))
     return temp
 
-def nd_to_1d(orders, index=0):
-    """return 1d_repr. and map"""
+def nd_to_1d(orders: list, index=0) -> tuple:
+    """return 1d_representation and map"""
     _1d_representation = []
     map = []
     for i ,order in enumerate(orders):
@@ -126,6 +104,7 @@ def nd_to_1d(orders, index=0):
     return _1d_representation, map
 
 def _1d_to_nd(_1d_representation, map):
+    '''transform list to original structure'''
     orders = []
     for ind in map:
         if type(ind) == list:
@@ -135,22 +114,18 @@ def _1d_to_nd(_1d_representation, map):
     return orders
 
 def kombinations(orders):
+    '''generator for kombinations'''
     carry = generate_default_carry_state(orders)
-    orders_1d = generate_1d_orders(orders)
     kombination = []
     output = generate_default_state(orders)
     for ind in range(len(orders)):
         kombination.append(make_generator(orders[ind]))
 
-
-    all_carry = False
-    #while not all_carry:
-    ## first iter
     for ind in range(len(kombination)):
         output[ind] = next(kombination[ind])
     yield output
 
-    for number in range(count_of_variations(orders) - 1):
+    for _ in range(count_of_variations(orders) - 1):
         for ind in range(len(kombination)):
             if carry[ind] == 1:
                 kombination[ind] = make_generator(orders[ind])
@@ -176,7 +151,9 @@ def kombinations(orders):
                     carry[ind] = 1
                 yield output
                 break
-def make_payload(kombination: list, keys: dict, data_types: list) -> list:
+
+def make_payload(kombination: list, keys: dict, data_types: list) -> dict:
+    '''returns dict representation of payload'''
     payload = {}
 
     for ind, key in enumerate(keys):
@@ -198,11 +175,11 @@ def nd_kombinations(schema : Schema) -> list:
     for k in kombinations(_1d):
         yield make_payload(_1d_to_nd(k, map), keys, data_types)
 
-def test_api(schema : Schema, url: str) -> None:
-    for data in nd_kombinations(schema):
-        response = requests.post(url, json=data)
+def generate_json(schema: Schema)-> str:
+    '''returns json format of payload'''
+    for k in nd_kombinations(schema):
+        yield json.dumps(k)
 
 if __name__ == "__main__":
     for v in nd_kombinations(test_schema):
         print(v)
-
